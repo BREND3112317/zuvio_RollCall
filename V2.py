@@ -9,12 +9,11 @@ from selenium.webdriver.chrome.options import Options
 
 _Url = "https://irs.zuvio.com.tw/student5/irs/index"
 _Opts = Options()
-_Opts.add_argument("--headless")  # 使用背景執行
+#_Opts.add_argument("--headless")  # 使用背景執行
 _Opts.add_argument("--incognito")  # 使用無痕模式
 _Driver = webdriver.Chrome(executable_path="chromedrive\\chromedriver.exe", chrome_options=_Opts)
 _Course = []
 _Threads = []
-_Day = 0
 
 
 def GetUrl(url):
@@ -34,17 +33,18 @@ def Login(account, password):
 	print("\t登入成功")
 	return True
 
-def goRollCall(irsNumber, irsName, day):
-	while day == _Day:
+def goRollCall(irsNumber, irsName):
+	while true:
 		try:
 			#進入課程點名畫面
 			_Driver.execute_script("irs_currentRollcall(" + str(irsNumber) + ")")
 			wiatTime = 60+random.randint(-30,30)
-			if len(_Driver.find_elements_by_xpath("//div[@class='no-active']"))>0:
-				print(str(irsNumber) + " - " + irsName +"\n\t尚未開放登入，等待" + str(wiatTime) + "秒後繼續")
-			else:
+			make = _Driver.find_elements_by_xpath("//div[@id='submit-make-rollcall']")
+			if len(make)>0 & make[0].test=="我到了":
 				_Driver.execute_script("makeRollcall(rollcall_id)")
 				print(str(irsNumber) + " - " + irsName +"\n\t已簽到，" + str(wiatTime) + "秒後繼續")
+			else:
+				print(str(irsNumber) + " - " + irsName +"\n\t尚未開放登入，等待" + str(wiatTime) + "秒後繼續")
 			time.sleep(wiatTime)
 		except:
 			print("RollCall Error.\n\t irsNumber: " + str(irsNumber))
@@ -65,24 +65,21 @@ def getCourse():
 	
 
 def main(Account, Password):
-	if Login(Account, Password) == False:
-		return
-	global _Day
-	_Course = getCourse()
 	while True:
+		if Login(Account, Password) == False:
+			return
+		_Course = getCourse()
 		_Threads = []
-		if _Day != (time.localtime().tm_wday+1):
-			_Day = time.localtime().tm_wday+1
-			print("準備開始簽到")
-			for course in _Course:
-				t = threading.Thread(target=goRollCall, args=(course[0], course[1], int(_Day)))
-				t.start()
-				_Threads.append(t)
-				time.sleep(random.randint(0,5))
-				
-			for thread in _Threads:
-				thread.join()
-		time.sleep(30)
+		print("準備開始簽到")
+		for course in _Course:
+			t = threading.Thread(target=goRollCall, args=(course[0], course[1]))
+			t.start()
+			_Threads.append(t)
+			time.sleep(random.randint(0,5))
+			
+		for thread in _Threads:
+			thread.join()
+		
 
 
 if __name__ == "__main__":
